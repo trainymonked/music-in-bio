@@ -1,0 +1,23 @@
+{
+  "name": "music-in-bio",
+  "version": "1.0.0",
+  "description": "Sync currently playing Spotify/Last.fm track to Telegram profile bio",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "session": "node src/generateSession.js",
+    "check": "node --check src/index.js && node --check src/generateSession.js"
+  },
+  "keywords": [
+    "telegram",
+    "spotify",
+    "lastfm",
+    "bio"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "telegram": "^2.26.22"
+  }
+}
