@@ -45,7 +45,7 @@ function buildMusicSegment(track) {
 function buildComposedBio(baseBio, musicSegment) {
   if (!musicSegment) return truncate(baseBio, maxBioLength)
   if (!baseBio) return truncate(musicSegment, maxBioLength)
-  return truncate(`${baseBio}${bioSeparator}${musicSegment}`, maxBioLength)
+  return truncate(`${baseBio.trim()} ${bioSeparator}${musicSegment}`, maxBioLength)
 }
 
 function isLikelyMusicSegment(segment) {
@@ -69,14 +69,37 @@ function extractBaseBio(currentBio) {
     return ''
   }
 
-  const separatorIndex = currentBio.lastIndexOf(bioSeparator)
-  if (separatorIndex === -1) return currentBio
+  if (bioSeparator) {
+    const separatorIndex = currentBio.lastIndexOf(bioSeparator)
+    if (separatorIndex !== -1) {
+      const baseCandidate = currentBio.slice(0, separatorIndex)
+      const suffixCandidate = currentBio.slice(separatorIndex + bioSeparator.length)
 
-  const baseCandidate = currentBio.slice(0, separatorIndex)
-  const suffixCandidate = currentBio.slice(separatorIndex + bioSeparator.length)
+      if (isLikelyMusicSegment(suffixCandidate)) {
+        return baseCandidate
+      }
+    }
+  }
 
-  if (isLikelyMusicSegment(suffixCandidate)) {
-    return baseCandidate
+  if (lastAppliedMusicSegment && currentBio.endsWith(lastAppliedMusicSegment)) {
+    return currentBio.slice(0, -lastAppliedMusicSegment.length)
+  }
+
+  const prefix = bioPrefix.trim()
+  let searchFrom = currentBio.length
+
+  while (prefix && searchFrom > 0) {
+    const prefixIndex = currentBio.lastIndexOf(prefix, searchFrom - 1)
+    if (prefixIndex === -1) break
+
+    const baseCandidate = currentBio.slice(0, prefixIndex)
+    const suffixCandidate = currentBio.slice(prefixIndex)
+
+    if (isLikelyMusicSegment(suffixCandidate)) {
+      return baseCandidate
+    }
+
+    searchFrom = prefixIndex
   }
 
   return currentBio
