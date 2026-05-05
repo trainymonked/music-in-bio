@@ -9,12 +9,6 @@
     "session": "node src/generateSession.js",
     "check": "node --check src/index.js && node --check src/generateSession.js"
   },
-  "keywords": [
-    "telegram",
-    "spotify",
-    "lastfm",
-    "bio"
-  ],
   "license": "MIT",
   "dependencies": {
     "dotenv": "^16.4.5",

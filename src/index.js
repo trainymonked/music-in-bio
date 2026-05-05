@@ -14,12 +14,10 @@ for (const key of REQUIRED_TELEGRAM_VARS) {
 const source = (process.env.SOURCE ?? 'lastfm').toLowerCase()
 const pollIntervalMs = Number(process.env.POLL_INTERVAL_SEC ?? 20) * 1000
 const clearWhenNotPlaying = (process.env.CLEAR_WHEN_NOT_PLAYING ?? 'false').toLowerCase() === 'true'
-const bioPrefix = ' 🎧 '
+const bioPrefix = '🎧 '
 const bioSuffix = ''
-const bioSeparator = ''
 // const bioPrefix = process.env.BIO_PREFIX ?? '🎧 '
 // const bioSuffix = process.env.BIO_SUFFIX ?? ''
-// const bioSeparator = process.env.BIO_SEPARATOR ?? ' | '
 const maxBioLength = Number(process.env.MAX_BIO_LENGTH ?? 70)
 
 const telegramApiId = Number(process.env.TELEGRAM_API_ID)
@@ -45,7 +43,7 @@ function buildMusicSegment(track) {
 function buildComposedBio(baseBio, musicSegment) {
   if (!musicSegment) return truncate(baseBio, maxBioLength)
   if (!baseBio) return truncate(musicSegment, maxBioLength)
-  return truncate(`${baseBio.trim()} ${bioSeparator}${musicSegment}`, maxBioLength)
+  return truncate(`${baseBio.trim()} ${musicSegment}`, maxBioLength)
 }
 
 function isLikelyMusicSegment(segment) {
@@ -67,18 +65,6 @@ function extractBaseBio(currentBio) {
 
   if (isLikelyMusicSegment(currentBio)) {
     return ''
-  }
-
-  if (bioSeparator) {
-    const separatorIndex = currentBio.lastIndexOf(bioSeparator)
-    if (separatorIndex !== -1) {
-      const baseCandidate = currentBio.slice(0, separatorIndex)
-      const suffixCandidate = currentBio.slice(separatorIndex + bioSeparator.length)
-
-      if (isLikelyMusicSegment(suffixCandidate)) {
-        return baseCandidate
-      }
-    }
   }
 
   if (lastAppliedMusicSegment && currentBio.endsWith(lastAppliedMusicSegment)) {
@@ -224,11 +210,42 @@ async function getCurrentBio(client) {
 }
 
 async function updateBio(client, nextBio) {
-  await client.invoke(
+  await invokeWithReconnect(
+    client,
     new Api.account.UpdateProfile({
       about: nextBio,
     }),
   )
+}
+
+function shouldReconnect(error) {
+  const message = String(error?.message ?? '').toUpperCase()
+  return message.includes('CONNECTION_NOT_INITED') || message.includes('CLIENT_HAS_BEEN_DISCONNECTED')
+}
+
+async function connectTelegram(client, reason = 'startup') {
+  if (client.connected) return
+  await client.connect()
+  console.log(`Connected to Telegram (${reason})`)
+}
+
+
+async function invokeWithReconnect(client, request) {
+  try {
+    await connectTelegram(client)
+    return await client.invoke(request)
+  } catch (error) {
+    if (!shouldReconnect(error)) throw error
+
+    console.warn(`[${new Date().toISOString()}] Telegram connection issue detected (${error.message}). Reconnecting...`)
+    try {
+      await client.disconnect()
+    } catch {
+      // Ignore disconnect errors; reconnect attempt below is what matters.
+    }
+    await connectTelegram(client, 'after reconnect')
+    return client.invoke(request)
+  }
 }
 
 async function main() {
@@ -236,8 +253,7 @@ async function main() {
     connectionRetries: 5,
   })
 
-  await client.connect()
-  console.log('Connected to Telegram')
+  await connectTelegram(client)
 
   while (true) {
     try {
